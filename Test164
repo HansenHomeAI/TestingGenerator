@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Elevation Finder and Drone Flight Path Generator</title>
+    <!-- Include the Google Maps JavaScript API with your API key -->
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDkdnE1weVG38PSUO5CWFneFjH16SPYZHU"></script>
+    <style>
+        /* General Styles */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            margin: 0;
+            padding: 0;
+            background: #1C1C1E; /* Dark background */
+            color: #FFFFFF; /* White text */
+            min-height: 100vh;
+            overflow-x: hidden; /* Allow vertical scrolling */
+        }
+
+        /* Container */
+        .container {
+            text-align: center;
+            max-width: 600px;
+            margin: 40px auto; /* Centered with margin */
+            padding: 20px;
+            border-radius: 20px;
+            background: #2C2C2E; /* Slightly lighter dark background */
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Headings */
+        h1 {
+            font-size: 2rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #FFFFFF; /* White text */
+        }
+
+        /* Subheadings */
+        h2 {
+            font-size: 1.5rem;
+            font-weight: 500;
+            margin-bottom: 15px;
+            color: #FFFFFF; /* White text */
+        }
+
+        /* Input Field */
+        input[type="text"] {
+            width: 100%;
+            padding: 12px 15px;
+            font-size: 1rem;
+            border: none;
+            border-radius: 10px;
+            background: #3A3A3C;
+            color: #FFFFFF;
+            outline: none;
+            margin-bottom: 15px;
+            box-sizing: border-box; /* Ensure proper box sizing */
+        }
+
+        /* Input Row */
+        .input-row {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        .input-row input[type="number"],
+        .input-row input[type="text"] {
+            flex: 1;
+            min-width: 45%;
+            padding: 12px 15px;
+            font-size: 1rem;
+            border: none;
+            border-radius: 10px;
+            background: #3A3A3C;
+            color: #FFFFFF;
+            outline: none;
+            margin-bottom: 15px;
+            box-sizing: border-box; /* Ensure proper box sizing */
+        }
+
+        /* Input Group for Toggle */
+        .input-group {
+            display: flex;
+            align-items: center;
+            flex: 1;
+        }
+
+        .toggle-label {
+            display: flex;
+            align-items: center;
+            font-size: 0.9rem;
+            margin-left: 10px;
+            color: #FFFFFF;
+        }
+
+        .toggle-label input[type="checkbox"] {
+            margin-right: 5px;
+        }
+
+        /* Button */
+        button {
+            padding: 12px 20px;
+            font-size: 1rem;
+            border: none;
+            border-radius: 10px;
+            background: #0A84FF; /* Apple blue */
+            color: #FFFFFF;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease-in-out;
+            margin-top: 10px;
+        }
+
+        button:hover {
+            background: #0A84FFCC; /* Slightly lighter blue on hover */
+        }
+
+        /* Result Text */
+        #result {
+            margin-top: 20px;
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #FFFFFF;
+        }
+
+        /* Flight Time */
+        #flightTime {
+            margin-top: 10px;
+            font-size: 1rem;
+            color: #FFFFFF;
+        }
+
+        /* Log Output */
+        #log {
+            margin-top: 20px;
+            font-size: 0.9rem;
+            color: #D1D1D6; /* Apple light gray */
+            max-height: 400px;
+            overflow-y: auto;
+            text-align: left;
+            white-space: pre-wrap;
+            background: #3A3A3C;
+            padding: 15px;
+            border-radius: 10px;
+        }
+
+        /* Hide number input spinners */
+        input[type=number]::-webkit-inner-spin-button,
+        input[type=number]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        /* Scrollbar Styles */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #2C2C2E;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #636366;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #48484A;
+        }
+
+        /* Segment Downloads */
+        .segment-downloads {
+            margin-top: 20px;
+            color: #FFFFFF;
+        }
+
+        .segment-downloads button {
+            margin: 5px;
+        }
+
+        /* POI Row */
+        .poi-row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .poi-row input[type="number"],
+        .poi-row input[type="text"] {
+            flex: 1;
+            min-width: 30%;
+            padding: 12px 15px;
+            font-size: 1rem;
+            border: none;
+            border-radius: 10px;
+            background: #3A3A3C;
+            color: #FFFFFF;
+            outline: none;
+            box-sizing: border-box;
+        }
+
+        .poi-row span {
+            color: #FFFFFF;
+            font-size: 1rem;
+            margin: 0 5px;
+        }
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Elevation Finder and Drone Flight Path Generator</h1>
+        <form id="coordinateForm">
+            <div class="input-row">
+                <input 
+                    type="text" 
+                    id="title" 
+                    name="title" 
+                    placeholder="Enter title (e.g., deer_knoll)"
+                >
+                <input 
+                    type="text" 
+                    id="coordinates" 
+                    name="coordinates" 
+                    placeholder="Enter coordinates (e.g., 40.68920°N, 74.04454°W)"
+                >
+            </div>
+            <div class="input-row">
+                <input 
+                    type="number" 
+                    id="numLoops" 
+                    name="numLoops" 
+                    placeholder="Loops (default: 3)" 
+                    min="1" 
+                    step="1"
+                >
+                <input 
+                    type="number" 
+                    id="initialRadius" 
+                    name="initialRadius" 
+                    placeholder="Initial radius ft (default: 200)" 
+                    step="any"
+                >
+            </div>
+            <div class="input-row">
+                <div class="input-group">
+                    <input 
+                        type="number" 
+                        id="radiusIncrement" 
+                        name="radiusIncrement" 
+                        placeholder="Radius increment ft (default: 50)" 
+                        step="any"
+                    >
+                    <label class="toggle-label">
+                        <input type="checkbox" id="exponentialRadius">
+                        Exponential Increment
+                    </label>
+                </div>
+                <div class="input-group">
+                    <input 
+                        type="number" 
+                        id="aglIncrement" 
+                        name="aglIncrement" 
+                        placeholder="AGL increment ft (default: 20)" 
+                        step="any"
+                    >
+                    <label class="toggle-label">
+                        <input type="checkbox" id="exponentialAGL">
+                        Exponential Increment
+                    </label>
+                </div>
+            </div>
+            <div class="input-row">
+                <input 
+                    type="number" 
+                    id="initialAGL" 
+                    name="initialAGL" 
+                    placeholder="Initial AGL ft (default: 150)" 
+                    step="any"
+                >
+                <input 
+                    type="number" 
+                    id="batteryCapacity" 
+                    name="batteryCapacity" 
+                    placeholder="Battery capacity min (default: 20)" 
+                    step="any"
+                >
+            </div>
+            <div class="input-row">
+                <input 
+                    type="number" 
+                    id="startPointAltitude" 
+                    name="startPointAltitude" 
+                    placeholder="Start point altitude ft (default: 70)" 
+                    step="any"
+                >
+                <input 
+                    type="number" 
+                    id="poiAltitude" 
+                    name="poiAltitude" 
+                    placeholder="POI altitude ft (default: 0)" 
+                    step="any"
+                >
+            </div>
+
+            <!-- POI Section -->
+            <div id="poiSection">
+                <h2 style="color: #FFFFFF;">Points of Interest</h2>
+                <!-- POI rows will be added here -->
+            </div>
+            <button type="button" id="addPoiButton">Add POI</button>
+
+            <button type="submit">Generate Flight Path</button>
+        </form>
+        <div id="result"></div>
+        <button id="downloadMasterBtn" style="display:none;">Download Master Flight Path CSV</button>
+        <div id="segmentDownloads" class="segment-downloads" style="display:none;"></div>
+        <div id="flightTime" style="display:none;"></div>
+        <div id="log"></div>
+    </div>
+
+    <script>
+        let poiCount = 0;
+
+        document.getElementById("addPoiButton").addEventListener("click", addPoiRow);
+
+        function addPoiRow() {
+            poiCount++;
+
+            const poiSection = document.getElementById("poiSection");
+
+            const poiRow = document.createElement('div');
+            poiRow.classList.add('poi-row');
+
+            const poiLabel = document.createElement('span');
+            poiLabel.textContent = `POI ${poiCount}`;
+
+            const poiAltitudeInput = document.createElement('input');
+            poiAltitudeInput.type = 'number';
+            poiAltitudeInput.name = `poiAltitude${poiCount}`;
+            poiAltitudeInput.placeholder = 'POI Altitude Ft';
+            poiAltitudeInput.step = 'any';
+
+            const appliesToLabel = document.createElement('span');
+            appliesToLabel.textContent = 'POI Applies to:';
+
+            const loopFromInput = document.createElement('input');
+            loopFromInput.type = 'number';
+            loopFromInput.name = `poiLoopFrom${poiCount}`;
+            loopFromInput.placeholder = 'From Loop';
+            loopFromInput.min = '1';
+            loopFromInput.step = '1';
+
+            const toLabel = document.createElement('span');
+            toLabel.textContent = 'to';
+
+            const loopToInput = document.createElement('input');
+            loopToInput.type = 'number';
+            loopToInput.name = `poiLoopTo${poiCount}`;
+            loopToInput.placeholder = 'To Loop';
+            loopToInput.min = '1';
+            loopToInput.step = '1';
+
+            poiRow.appendChild(poiLabel);
+            poiRow.appendChild(poiAltitudeInput);
+            poiRow.appendChild(appliesToLabel);
+            poiRow.appendChild(loopFromInput);
+            poiRow.appendChild(toLabel);
+            poiRow.appendChild(loopToInput);
+
+            poiSection.appendChild(poiRow);
+        }
+
+        document.getElementById("coordinateForm").addEventListener("submit", async function(event) {
+            event.preventDefault();
+
+            const titleInput = document.getElementById("title").value.trim() || 'untitled';
+            const title = sanitizeTitle(titleInput);
+
+            const input = document.getElementById("coordinates").value;
+            const numLoopsInput = document.getElementById("numLoops").value;
+            const initialRadiusInput = document.getElementById("initialRadius").value;
+            const radiusIncrementInput = document.getElementById("radiusIncrement").value;
+            const exponentialRadius = document.getElementById("exponentialRadius").checked;
+            const initialAGLInput = document.getElementById("initialAGL").value;
+            const aglIncrementInput = document.getElementById("aglIncrement").value;
+            const exponentialAGL = document.getElementById("exponentialAGL").checked;
+            const batteryCapacityInput = document.getElementById("batteryCapacity").value;
+            const startPointAltitudeInput = document.getElementById("startPointAltitude").value;
+            const poiAltitudeInput = document.getElementById("poiAltitude").value;
+
+            const resultDiv = document.getElementById("result");
+            const downloadMasterBtn = document.getElementById("downloadMasterBtn");
+            const flightTimeDiv = document.getElementById("flightTime");
+            const segmentDownloadsDiv = document.getElementById("segmentDownloads");
+            const logDiv = document.getElementById("log");
+            logDiv.innerHTML = ''; // Clear previous logs
+
+            try {
+                // Parse and convert input to decimal degrees
+                const { lat, lon } = parseCoordinates(input);
+                log('Parsed Coordinates:', `Latitude: ${lat}, Longitude: ${lon}`);
+
+                // Fetch elevation data
+                const elevationMeters = await getElevation(lat, lon);
+                log('Fetched Elevation:', `Elevation (meters): ${elevationMeters}`);
+
+                // Convert meters to feet
+                const elevationFeet = (elevationMeters * 3.28084).toFixed(2);
+                log('Converted Elevation:', `Elevation (feet): ${elevationFeet}`);
+
+                resultDiv.innerHTML = `Elevation at (${lat.toFixed(5)}, ${lon.toFixed(5)}): ${elevationFeet} feet`;
+
+                // Parse input parameters with defaults
+                const numLoops = parseInt(numLoopsInput) || 3;
+                const initialRadius = parseFloat(initialRadiusInput) || 200; // in feet
+                const radiusIncrement = parseFloat(radiusIncrementInput) || 50; // in feet
+                const initialAGL = parseFloat(initialAGLInput) || 150; // in feet
+                const aglIncrement = parseFloat(aglIncrementInput) || 20; // in feet
+                const batteryCapacity = parseFloat(batteryCapacityInput) || 20; // in minutes
+                const startPointAltitude = parseFloat(startPointAltitudeInput) || 70; // in feet
+                const poiAltitude = parseFloat(poiAltitudeInput) || 0; // in feet
+
+                // Collect POIs
+                const poiList = [];
+
+                const poiRows = document.getElementsByClassName('poi-row');
+                for (let i = 0; i < poiRows.length; i++) {
+                    const poiRow = poiRows[i];
+                    const poiAltitudeInput = poiRow.querySelector(`input[name="poiAltitude${i+1}"]`);
+                    const loopFromInput = poiRow.querySelector(`input[name="poiLoopFrom${i+1}"]`);
+                    const loopToInput = poiRow.querySelector(`input[name="poiLoopTo${i+1}"]`);
+
+                    const poiAltitudeValue = parseFloat(poiAltitudeInput.value);
+                    const loopFrom = parseInt(loopFromInput.value);
+                    const loopTo = parseInt(loopToInput.value);
+
+                    if (isNaN(poiAltitudeValue) || isNaN(loopFrom) || isNaN(loopTo)) {
+                        throw new Error(`Invalid input in POI ${i+1}. Please fill out all POI fields.`);
+                    }
+
+                    poiList.push({
+                        altitude: poiAltitudeValue,
+                        loopFrom: loopFrom,
+                        loopTo: loopTo
+                    });
+                }
+
+                // Validate radiusIncrement when exponential increment is selected
+                if (exponentialRadius && radiusIncrement <= 0) {
+                    throw new Error("Radius increment must be greater than 0 for exponential increment.");
+                }
+
+                // Validate aglIncrement when exponential increment is selected
+                if (exponentialAGL && aglIncrement <= 0) {
+                    throw new Error("AGL increment must be greater than 0 for exponential increment.");
+                }
+
+                // Show the download buttons and flight time div
+                downloadMasterBtn.style.display = "inline-block";
+                flightTimeDiv.style.display = "block";
+
+                // Generate master flight path
+                let masterWaypoints = await generateMasterFlightPath(
+                    lat, 
+                    lon, 
+                    parseFloat(elevationFeet), 
+                    numLoops, 
+                    initialRadius, 
+                    radiusIncrement, 
+                    initialAGL, 
+                    aglIncrement,
+                    exponentialRadius,
+                    poiList,
+                    exponentialAGL,
+                    poiAltitude
+                );
+
+                // Validate master waypoints
+                masterWaypoints.forEach(validateWaypoint);
+
+                // Enforce maximum distance between waypoints in master flight path
+                masterWaypoints = enforceMaxDistanceBetweenWaypoints(masterWaypoints, 6560); // 6,560 ft
+
+                // Generate segments based on the master flight path
+                const { totalFlightTimeMinutes, segments } = await segmentFlightPath(
+                    masterWaypoints,
+                    lat,
+                    lon,
+                    elevationFeet,
+                    batteryCapacity,
+                    startPointAltitude,
+                    poiAltitude
+                );
+
+                // Validate segments
+                segments.forEach(segment => segment.forEach(validateWaypoint));
+
+                // Display total flight time
+                flightTimeDiv.innerHTML = `Estimated Total Flight Time: ${totalFlightTimeMinutes.toFixed(2)} minutes`;
+
+                // Attach event listener to the master download button
+                downloadMasterBtn.onclick = function() {
+                    downloadCSV(masterWaypoints, `${title}-master.csv`);
+                    log('Download:', `${title}-master.csv has been downloaded.`);
+                };
+
+                // Display segment download buttons
+                segmentDownloadsDiv.style.display = "block";
+                segmentDownloadsDiv.innerHTML = `<p>Flight Segments (${segments.length}):</p>`;
+                segments.forEach((segment, index) => {
+                    const segmentBtn = document.createElement('button');
+                    segmentBtn.textContent = `Download Segment ${index + 1}`;
+                    segmentBtn.onclick = function() {
+                        downloadCSV(segment, `${title}-segment-${index + 1}.csv`);
+                        log('Download:', `${title}-segment-${index + 1}.csv has been downloaded.`);
+                    };
+                    segmentDownloadsDiv.appendChild(segmentBtn);
+                });
+            } catch (error) {
+                resultDiv.innerHTML = `Error: ${error.message}`;
+                downloadMasterBtn.style.display = "none";
+                flightTimeDiv.style.display = "none";
+                segmentDownloadsDiv.style.display = "none";
+                log('Error:', error.message);
+            }
+        });
+
+        function parseCoordinates(input) {
+            // Normalize input
+            input = input.replace(/\s+/g, ' ').trim();
+
+            // Match degrees, minutes, seconds (DMS) format
+            const dmsRegex = /(\d+)[°\s](\d+)['\s](\d+(?:\.\d+)?)["]?\s*([NnSs]),?\s*(\d+)[°\s](\d+)['\s](\d+(?:\.\d+)?)["]?\s*([EeWw])/;
+            const matchDMS = input.match(dmsRegex);
+
+            if (matchDMS) {
+                let latDeg = parseFloat(matchDMS[1]);
+                let latMin = parseFloat(matchDMS[2]);
+                let latSec = parseFloat(matchDMS[3]);
+                let latDir = matchDMS[4];
+
+                let lonDeg = parseFloat(matchDMS[5]);
+                let lonMin = parseFloat(matchDMS[6]);
+                let lonSec = parseFloat(matchDMS[7]);
+                let lonDir = matchDMS[8];
+
+                let lat = latDeg + (latMin / 60) + (latSec / 3600);
+                let lon = lonDeg + (lonMin / 60) + (lonSec / 3600);
+
+                if (/S/i.test(latDir)) lat = -Math.abs(lat);
+                if (/W/i.test(lonDir)) lon = -Math.abs(lon);
+
+                return { lat, lon };
+            }
+
+            // Match decimal degrees format
+            const decimalRegex = /([+-]?\d+(\.\d+)?)[°\s]*([NnSs])?\s*,?\s*([+-]?\d+(\.\d+)?)[°\s]*([EeWw])?/;
+            const matchDecimal = input.match(decimalRegex);
+
+            if (matchDecimal) {
+                let lat = parseFloat(matchDecimal[1]);
+                let latDir = matchDecimal[3];
+                let lon = parseFloat(matchDecimal[4]);
+                let lonDir = matchDecimal[6];
+
+                if (/S/i.test(latDir)) lat = -Math.abs(lat);
+                if (/W/i.test(lonDir)) lon = -Math.abs(lon);
+
+                return { lat, lon };
+            }
+
+            throw new Error("Invalid coordinate format.");
+        }
+
+        // Updated getElevation function using Google Maps ElevationService
+        async function getElevation(lat, lon) {
+            return new Promise((resolve, reject) => {
+                const elevator = new google.maps.ElevationService();
+                const locations = [{ lat: lat, lng: lon }];
+
+                elevator.getElevationForLocations({ locations: locations }, (results, status) => {
+                    if (status === 'OK' && results[0]) {
+                        log('Fetched Elevation:', `Elevation (meters): ${results[0].elevation}`);
+                        resolve(results[0].elevation);
+                    } else {
+                        log('Error with ElevationService:', status);
+                        reject(new Error(`Elevation data not available: ${status}`));
+                    }
+                });
+            });
+        }
+
+        // Remove getElevationFromOpenElevation and isPointInUSA functions as they are no longer needed
+
+        async function getElevations(locations) {
+            const elevationPromises = locations.map(async (loc) => {
+                const [lat, lon] = loc.split(',').map(Number);
+                try {
+                    return await getElevation(lat, lon);
+                } catch (error) {
+                    log(`Failed to get elevation for ${lat}, ${lon}:`, error.message);
+                    // Return null if elevation data cannot be fetched
+                    return null;
+                }
+            });
+
+            const elevations = await Promise.all(elevationPromises);
+
+            // Check for null elevations
+            if (elevations.includes(null)) {
+                throw new Error("Failed to fetch elevation data for some waypoints.");
+            }
+
+            log('Fetched Elevations:', JSON.stringify(elevations));
+
+            return elevations;
+        }
+
+        // The rest of your code remains unchanged
+        function computeDestinationPoint(lat, lon, distanceMeters, bearingDegrees) {
+            // [Your existing function code]
+            const R = 6378137; // Earth's radius in meters
+            const bearingRad = bearingDegrees * Math.PI / 180;
+            const latRad = lat * Math.PI / 180;
+            const lonRad = lon * Math.PI / 180;
+
+            const newLatRad = Math.asin(Math.sin(latRad) * Math.cos(distanceMeters / R) +
+                Math.cos(latRad) * Math.sin(distanceMeters / R) * Math.cos(bearingRad));
+
+            const newLonRad = lonRad + Math.atan2(
+                Math.sin(bearingRad) * Math.sin(distanceMeters / R) * Math.cos(latRad),
+                Math.cos(distanceMeters / R) - Math.sin(latRad) * Math.sin(newLatRad)
+            );
+
+            const newLat = newLatRad * 180 / Math.PI;
+            const newLon = newLonRad * 180 / Math.PI;
+
+            return { lat: newLat, lon: newLon };
+        }
+
+        // [Include the rest of your functions without changes]
+        // enforceMaxDistanceBetweenWaypoints, insertMidpoints, computeMidpoint, generateMasterFlightPath, segmentFlightPath, haversineDistance, calculateBearing, validateWaypoint, downloadCSV, log, sanitizeTitle
+
+        // For brevity, if you'd like me to include all these functions in full, please let me know!
+    </script>
+</body>
+</html>
